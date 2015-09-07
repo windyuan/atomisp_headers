@@ -227,11 +227,6 @@ struct atomisp_cnr_config {
 	__u16 sense_gain_hv;	/**< Sensitivity of vertical edge of V. */
 };
 
-struct dvs2_bq_resolution {
-        int width_bq;         /* width [BQ] */
-        int height_bq;        /* height [BQ] */
-};
-
 struct atomisp_dvs_6axis_config {
         uint32_t exp_id;
         uint32_t width_y;
@@ -244,42 +239,6 @@ struct atomisp_dvs_6axis_config {
         uint32_t *ycoords_uv;
 };
 
-struct atomisp_dvs_grid_info {
-        uint32_t enable;
-        uint32_t width;
-        uint32_t aligned_width;
-        uint32_t height;
-        uint32_t aligned_height;
-        uint32_t bqs_per_grid_cell;
-        uint32_t num_hor_coefs;
-        uint32_t num_ver_coefs;
-};
-
-/** DVS 2.0 Coefficient types. This structure contains 4 pointers to
- *  *  arrays that contain the coeffients for each type.
- *   */
-struct atomisp_dvs2_coef_types {
-        short __user *odd_real; /**< real part of the odd coefficients*/
-        short __user *odd_imag; /**< imaginary part of the odd coefficients*/
-        short __user *even_real;/**< real part of the even coefficients*/
-        short __user *even_imag;/**< imaginary part of the even coefficients*/
-};
-
-/*
- *  * DVS 2.0 Statistic types. This structure contains 4 pointers to
- *   * arrays that contain the statistics for each type.
- *    */
-struct atomisp_dvs2_stat_types {
-        int __user *odd_real; /**< real part of the odd statistics*/
-        int __user *odd_imag; /**< imaginary part of the odd statistics*/
-        int __user *even_real;/**< real part of the even statistics*/
-        int __user *even_imag;/**< imaginary part of the even statistics*/
-};
-
-struct atomisp_dvs_envelop {
-        unsigned int width;
-        unsigned int height;
-};
 
 struct atomisp_ctc_config {
 	__u16 y0;		/**< 1st kneepoint gain. */

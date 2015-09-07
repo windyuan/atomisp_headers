@@ -129,19 +129,6 @@ struct atomisp_grid_info {
 	unsigned int elem_bit_depth;
 };
 
-struct atomisp_dvs2_bq_resolutions {
-        /* GDC source image size [BQ] */
-        struct dvs2_bq_resolution source_bq;
-        /* GDC output image size [BQ] */
-        struct dvs2_bq_resolution output_bq;
-        /* GDC effective envelope size [BQ] */
-        struct dvs2_bq_resolution envelope_bq;
-        /* isp pipe filter size [BQ] */
-        struct dvs2_bq_resolution ispfilter_bq;
-        /* GDC shit size [BQ] */
-        struct dvs2_bq_resolution gdc_shift_bq;
-};
-
 struct atomisp_dis_vector {
 	int x;
 	int y;
@@ -154,40 +141,23 @@ struct atomisp_3a_rgby_output {
         uint32_t y;
 };
 
-struct atomisp_dvs_coefficients{
-        struct atomisp_dvs_grid_info grid;
-        __u16 hor_coefs;
-        __u16 ver_coefs;
-
-};
-
-struct atomisp_dvs2_coefficients{
-        struct atomisp_dvs_grid_info grid;
-        struct atomisp_dvs2_coef_types hor_coefs;
-        struct atomisp_dvs2_coef_types ver_coefs;
-};
-
-struct atomisp_dvs2_statistics {
-        struct atomisp_dvs_grid_info grid_info;
-        struct atomisp_dvs2_stat_types hor_prod;
-        struct atomisp_dvs2_stat_types ver_prod;
-};
 
 struct atomisp_dis_coefficients {
-	struct atomisp_dvs_grid_info grid_info;
-        struct atomisp_dvs2_coef_types hor_coefs;
-        struct atomisp_dvs2_coef_types ver_coefs;
+	struct atomisp_grid_info grid_info;
+	short __user *vertical_coefficients;
+	short __user *horizontal_coefficients;
 };
 
 struct atomisp_dis_statistics {
-	struct atomisp_dvs2_statistics dvs2_stat;
-        uint32_t exp_id;
+	struct atomisp_grid_info grid_info;
+	int __user *vertical_projections;
+	int __user *horizontal_projections;
 };
 
 struct atomisp_3a_statistics {
 	struct atomisp_grid_info  grid_info;
 	struct atomisp_3a_output __user *data;
-	struct atomisp_3a_rgby_ouput __user *rgby_data;
+	struct atomisp_3a_rgby_output __user *rgby_data;
 	unsigned int exp_id;
 };
 
@@ -219,8 +189,6 @@ struct atomisp_metadata_config {
 
 struct atomisp_parm {
 	struct atomisp_grid_info info;
-	struct atomisp_dvs_grid_info dvs_grid;
-        struct atomisp_dvs_envelop dvs_envelop;
 	struct atomisp_wb_config wb_config;
 	struct atomisp_cc_config cc_config;
 	struct atomisp_ob_config ob_config;
@@ -270,8 +238,6 @@ struct atomisp_parameters {
 	struct atomisp_vector      *motion_vector; /* For 2-axis DVS */
 	struct atomisp_shading_table *shading_table;
 	struct atomisp_morph_table *morph_table;
-	struct atomisp_dvs_coefficients *dvs_coefs; /* DVS 1.0 coefficients */
-        struct atomisp_dvs2_coefficients *dvs2_coefs; /* DVS 2.0 coefficients */
 	struct atomisp_anr_thres   *anr_thres;
 
 };
@@ -431,13 +397,18 @@ enum atomisp_acc_arg_type {
 	ATOMISP_ACC_ARG_FRAME	     /* Frame argument */
 };
 
-/** ISP memories, isp2300 */
+/** ISP memories */
 enum atomisp_acc_memory {
 	ATOMISP_ACC_MEMORY_PMEM = 0,
 	ATOMISP_ACC_MEMORY_DMEM,
 	ATOMISP_ACC_MEMORY_VMEM,
+	ATOMISP_ACC_MEMORY_VAMEM0,
 	ATOMISP_ACC_MEMORY_VAMEM1,
 	ATOMISP_ACC_MEMORY_VAMEM2,
+	ATOMISP_ACC_MEMORY_HMEM0,
+	ATOMISP_ACC_MEMORY_HMEM1,
+	ATOMISP_ACC_MEMORY_HMEM2,
+	ATOMISP_ACC_MEMORY_HMEM3,
 	ATOMISP_ACC_NR_MEMORY		/* Must be last */
 };
 
@@ -463,6 +434,7 @@ struct atomisp_acc_fw_arg {
  */
 struct atomisp_acc_s_mapped_arg {
 	unsigned int fw_handle;
+	__u32 offset;
 	__u32 memory;			/* one of enum atomisp_acc_memory */
 	size_t length;
 	unsigned long css_ptr;
@@ -498,6 +470,7 @@ struct atomisp_acc_fw_load_to_pipe {
 #define ATOMISP_ACC_FW_LOAD_FL_VIDEO		(1 << 2)
 #define ATOMISP_ACC_FW_LOAD_FL_CAPTURE		(1 << 3)
 #define ATOMISP_ACC_FW_LOAD_FL_ACC		(1 << 4)
+#define ATOMISP_ACC_FW_LOAD_FL_ENABLE           (1 << 16)
 
 #define ATOMISP_ACC_FW_LOAD_TYPE_NONE		0 /* Normal binary: don't use */
 #define ATOMISP_ACC_FW_LOAD_TYPE_OUTPUT		1 /* Stage on output */
@@ -512,7 +485,14 @@ struct atomisp_acc_map {
 	__u32 reserved[4];		/* Set to zero */
 };
 
+struct atomisp_acc_state {
+        __u32 flags;                    /* Flags, see list below */
+#define ATOMISP_STATE_FLAG_ENABLE       ATOMISP_ACC_FW_LOAD_FL_ENABLE
+        unsigned int fw_handle;
+};
+
 #define ATOMISP_MAP_FLAG_NOFLUSH	0x0001	/* Do not flush cache */
+#define ATOMISP_MAP_FLAG_CACHED         0x0002  /* Enable cache */
 
 /*
  * V4L2 private internal data interface.
@@ -726,6 +706,12 @@ struct v4l2_private_int_data {
 #define ATOMISP_IOC_G_METADATA \
         _IOWR('v', BASE_VIDIOC_PRIVATE + 64, struct atomisp_metadata)
 
+#define ATOMISP_IOC_S_ACC_STATE\
+	_IOWR('v', BASE_VIDIOC_PRIVATE + 65, struct atomisp_acc_state)
+
+#define ATOMISP_IOC_G_ACC_STATE\
+	_IOWR('v', BASE_VIDIOC_PRIVATE + 66, struct atomisp_acc_state)
+
 #define ATOMISP_FW_LOAD \
        _IOWR('v', BASE_VIDIOC_PRIVATE + 102, int)
 
@@ -802,6 +788,7 @@ struct v4l2_private_int_data {
 
 #define V4L2_EVENT_ATOMISP_3A_STATS_READY  (V4L2_EVENT_PRIVATE_START + 1)
 #define V4L2_EVENT_ATOMISP_METADATA_READY  (V4L2_EVENT_PRIVATE_START + 2)
+#define V4L2_EVENT_ATOMISP_ACC_COMPLETE  (V4L2_EVENT_PRIVATE_START + 3)
 
 /* Nonstandard color effects for V4L2_CID_COLORFX */
 enum {
